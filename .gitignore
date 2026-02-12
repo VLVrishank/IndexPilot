@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+indexpilot.db
+.env
+full_report.txt
+report.txt
