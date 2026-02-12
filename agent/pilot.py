@@ -3,10 +3,11 @@ IndexPilot - Autonomous Database Performance Agent
 Uses Groq's native tool-calling API to diagnose and fix index problems.
 """
 
+import os
 import json
 import time
 import requests
-from tools import (
+from .tools import (
     get_schema,
     explain_analyze,
     apply_index,
@@ -17,6 +18,16 @@ from tools import (
 )
 
 # -- Configuration --------------------------------------------------------
+
+# Load .env from project root (no dependency needed)
+_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL  = "openai/gpt-oss-120b"

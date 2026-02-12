@@ -4,10 +4,12 @@ IndexPilot - SQL Toolbox
 + utility helpers for benchmarking (not exposed to the LLM).
 """
 
+import os
 import sqlite3
 import time
 
-DB_PATH = "indexpilot.db"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(PROJECT_ROOT, "indexpilot.db")
 
 
 def get_db_connection():
@@ -87,7 +89,6 @@ def list_indexes():
         return "No indexes found (besides autoindex / primary keys)."
     parts = []
     for name, tbl, sql in rows:
-        # sqlite_autoindex entries have sql=None
         sql_str = sql if sql else "(auto-created by PRIMARY KEY)"
         parts.append(f"  {name} ON {tbl} -- {sql_str}")
     return "Existing indexes:\n" + "\n".join(parts)
@@ -128,12 +129,10 @@ def count_rows(table: str = "transactions"):
 
 def measure_latency(query: str, runs: int = 5):
     """Measures average query latency. 1 warmup run (discarded) + N measured runs."""
-    # Warmup: prime the filesystem cache (discard)
     wc = get_db_connection()
     wc.cursor().execute(query).fetchall()
     wc.close()
 
-    # Measured runs: fresh connection each time
     times = []
     for _ in range(runs):
         conn = get_db_connection()
@@ -167,10 +166,8 @@ def seed_redundant_indexes():
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Two indexes on email -- one is redundant
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_v1 ON transactions (email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_v2 ON transactions (email)")
-    # A wider composite that makes a single-column index redundant
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_status_date ON transactions (transaction_status, created_at)"
     )
@@ -204,19 +201,16 @@ def restore_indexes(snapshot):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Drop everything current
     cursor.execute(
         "SELECT name FROM sqlite_master "
         "WHERE type='index' AND name NOT LIKE 'sqlite_autoindex%';"
     )
     for (name,) in cursor.fetchall():
         cursor.execute(f"DROP INDEX IF EXISTS {name}")
-    # Re-create from snapshot
     for name, sql in snapshot:
         try:
             cursor.execute(sql)
         except Exception:
-            pass  # index might reference dropped column, skip
+            pass
     conn.commit()
     conn.close()
-

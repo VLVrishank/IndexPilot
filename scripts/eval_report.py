@@ -4,9 +4,9 @@ Runs test cases with safety checks: row count + speedup.
 If either fails, the agent's changes are ROLLED BACK.
 
 Usage:
-    python eval_report.py          # Run all 6 tests
-    python eval_report.py 1        # Run only test #1
-    python eval_report.py 1 3 5    # Run tests #1, #3, #5
+    python scripts/eval_report.py          # Run all 6 tests
+    python scripts/eval_report.py 1        # Run only test #1
+    python scripts/eval_report.py 1 3 5    # Run tests #1, #3, #5
 """
 
 import os
@@ -15,7 +15,11 @@ import sys
 import time
 import subprocess
 
-from tools import (
+# Add project root to path so we can import the agent package
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+
+from agent.tools import (
     measure_latency,
     drop_all_indexes,
     seed_redundant_indexes,
@@ -23,7 +27,7 @@ from tools import (
     snapshot_indexes,
     restore_indexes,
 )
-from pilot import run_agent
+from agent.pilot import run_agent
 
 SEPARATOR = "-" * 100
 
@@ -53,10 +57,10 @@ def run_test_case(label, query, issue_label, setup_fn=None):
       1. Clean slate (drop indexes)
       2. Optional setup (e.g. seed redundant indexes)
       3. Snapshot indexes + row count (BEFORE)
-      4. Baseline latency (avg 3 runs)
+      4. Baseline latency (avg 5 runs)
       5. Run agent
       6. Row count check (AFTER)
-      7. Optimized latency (avg 3 runs)
+      7. Optimized latency (avg 5 runs)
       8. Evaluate: if row count mismatch OR speedup negative -> ROLLBACK
       9. Report verdict
     """
@@ -138,7 +142,7 @@ TEST_CASES = {
     2: {
         "label": "Query #2",
         "query": "SELECT * FROM transactions WHERE user_id = 8888 OR transaction_status = 'PENDING';",
-        "issue": "check it urself",
+        "issue": "SCAN (OR condition)",
     },
     3: {
         "label": "Query #3",
@@ -185,9 +189,13 @@ def print_menu():
 
 def main():
     # -- Pre-flight --
-    if not os.path.exists("indexpilot.db"):
+    db_path = os.path.join(PROJECT_ROOT, "indexpilot.db")
+    if not os.path.exists(db_path):
         print("Database not found. Seeding ...")
-        subprocess.run([sys.executable, "seed_db.py"], check=True)
+        subprocess.run(
+            [sys.executable, os.path.join(PROJECT_ROOT, "scripts", "seed_db.py")],
+            check=True,
+        )
 
     # -- Parse which tests to run --
     args = sys.argv[1:]
@@ -196,8 +204,8 @@ def main():
         try:
             selected = [int(a) for a in args]
         except ValueError:
-            print("Usage: python eval_report.py [test_numbers...]")
-            print("  e.g.  python eval_report.py 1 3 5")
+            print("Usage: python scripts/eval_report.py [test_numbers...]")
+            print("  e.g.  python scripts/eval_report.py 1 3 5")
             sys.exit(1)
 
         invalid = [n for n in selected if n not in TEST_CASES]

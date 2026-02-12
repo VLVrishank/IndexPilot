@@ -4,12 +4,14 @@ Creates a realistic multi-table schema with 1M+ rows and NO indexes.
 This is the 'broken' state the agent must diagnose and fix.
 """
 
+import os
 import sqlite3
 import random
 import time
 from faker import Faker
 
-DB_PATH = "indexpilot.db"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(PROJECT_ROOT, "indexpilot.db")
 
 
 def seed_database():
@@ -20,11 +22,11 @@ def seed_database():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # ── Drop existing tables ──
+    # -- Drop existing tables --
     c.execute("DROP TABLE IF EXISTS transactions")
     c.execute("DROP TABLE IF EXISTS users")
 
-    # ── Create users table (100K rows) ──
+    # -- Create users table (100K rows) --
     c.execute("""
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +37,7 @@ def seed_database():
         )
     """)
 
-    # ── Create transactions table (1M rows) ──
+    # -- Create transactions table (1M rows) --
     c.execute("""
         CREATE TABLE transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +50,7 @@ def seed_database():
         )
     """)
 
-    # ── Seed users ──
+    # -- Seed users --
     print("Seeding 100,000 users ...")
     start = time.time()
     countries = ["US", "UK", "IN", "DE", "FR", "JP", "BR", "CA", "AU", "NG"]
@@ -73,17 +75,17 @@ def seed_database():
     conn.commit()
     print(f"  Users seeded in {time.time() - start:.1f}s")
 
-    # ── Seed transactions ──
+    # -- Seed transactions --
     print("Seeding 1,000,000 transactions ...")
     start = time.time()
     statuses = ["pending", "completed", "failed", "refunded"]
     batch = []
     for i in range(1_000_000):
         batch.append((
-            random.randint(1, 100_000),          # user_id
-            fake.email(),                         # email
-            random.choice(statuses),              # transaction_status
-            round(random.uniform(1.0, 5000.0), 2),  # amount
+            random.randint(1, 100_000),
+            fake.email(),
+            random.choice(statuses),
+            round(random.uniform(1.0, 5000.0), 2),
         ))
         if len(batch) >= 10_000:
             c.executemany(
